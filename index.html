@@ -4,29 +4,75 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Loving You Eternally | Valentine's Memory Board</title>
-    <!-- Romantic Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Great+Vibes&family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <!-- Container for JS floating hearts -->
     <div id="hearts-container"></div>
 
+    <!-- Romantic Password Lock Screen Overlay -->
+    <div id="lock-screen" class="lock-overlay hidden">
+        <div class="lock-box">
+            <div class="lock-icon">🔒❤️</div>
+            <h2 class="script-font lock-title">For Your Eyes Only</h2>
+            <p id="lock-hint-display" class="lock-hint">Enter our secret passcode to unlock my heart.</p>
+            <input type="password" id="unlock-input" placeholder="Enter secret passcode...">
+            <p id="lock-error" class="lock-error hidden">Incorrect passcode, try again my love 💕</p>
+            <button type="button" id="unlock-btn" class="btn-love">Unlock Memories 🗝️</button>
+        </div>
+    </div>
+
+    <!-- Floating Background Music Player -->
+    <div id="music-player-pill" class="music-pill hidden">
+        <button type="button" id="music-toggle-btn" class="music-btn" title="Play / Pause Music">🎵</button>
+        <span id="music-track-name" class="music-label">Our Love Song</span>
+        <audio id="bg-audio" loop></audio>
+    </div>
+
+    <!-- Top Action Toolbar -->
+    <nav class="top-toolbar" id="editor-toolbar">
+        <button type="button" id="test-lock-btn" class="btn-tool">🔒 Test Lock Screen</button>
+        <button type="button" id="toggle-preview-btn" class="btn-tool">👁️ Preview Recipient View</button>
+        <button type="button" id="export-share-btn" class="btn-tool btn-share">💌 Save & Share File (Send to Loved One)</button>
+    </nav>
+
     <header class="hero">
-        <h1 class="script-font">Loving You Eternally</h1>
-        <p class="subtitle" contenteditable="true" title="Click to edit subtitle">
+        <h1 class="script-font" id="main-title" contenteditable="true" title="Click to edit main title">Loving You Eternally</h1>
+        <p class="subtitle" id="main-subtitle" contenteditable="true" title="Click to edit subtitle">
             Click here to write your own custom headline or dedication...
         </p>
     </header>
 
     <main class="container">
+        <!-- Music & Password Lock Settings (Editor Only) -->
+        <section class="creator-card settings-card" id="settings-section">
+            <h2 class="section-title">Music & Secret Passcode</h2>
+            <div class="settings-grid">
+                <div class="form-group">
+                    <label for="music-upload">🎵 Background Theme Song (MP3 / Audio)</label>
+                    <input type="file" id="music-upload" accept="audio/*">
+                    <div class="mini-row">
+                        <small id="music-status" class="helper-text">No song uploaded yet.</small>
+                        <button type="button" id="remove-music-btn" class="btn-link hidden">Remove song</button>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="secret-password">🔒 Secret Passcode (Optional)</label>
+                    <input type="text" id="secret-password" placeholder="e.g., 02142026 or MyLove">
+                    <input type="text" id="password-hint" class="mt-half" placeholder="Passcode Hint (e.g., Our anniversary date)">
+                    <small class="helper-text">Leave blank if you don't want a lock screen when sharing.</small>
+                </div>
+            </div>
+        </section>
+
         <!-- Interactive Creator Panel -->
-        <section class="creator-card">
-            <h2 class="section-title">Add a New Memory</h2>
+        <section class="creator-card" id="creator-section">
+            <h2 class="section-title">Write a Love Note or Memory</h2>
             <form id="memory-form">
                 <div class="form-group">
                     <label for="memory-title">Title / Date</label>
-                    <input type="text" id="memory-title" placeholder="e.g., Our First Coffee Date - Feb 14" required>
+                    <input type="text" id="memory-title" placeholder="e.g., Our First Date - Feb 14" required>
                 </div>
 
                 <div class="form-group">
@@ -35,23 +81,37 @@
                 </div>
 
                 <div class="form-group">
-                    <label for="memory-media">Attach a Photo or Video (Optional)</label>
+                    <label for="memory-media">Attach Photo or Video (Saved Automatically)</label>
                     <input type="file" id="memory-media" accept="image/*,video/*">
+                    <small id="file-status" class="helper-text"></small>
                 </div>
 
-                <button type="submit" class="btn-love">Pin to Our Board ❤️</button>
+                <div class="form-checkbox">
+                    <input type="checkbox" id="pin-on-create">
+                    <label for="pin-on-create">📌 Pin this to the very top of our board</label>
+                </div>
+
+                <div class="button-row">
+                    <button type="button" id="save-draft-btn" class="btn-draft">📝 Save as Draft</button>
+                    <button type="submit" class="btn-love">Publish to Board ❤️</button>
+                </div>
             </form>
         </section>
 
-        <!-- Display Grid for Memories -->
+        <!-- Saved Drafts Section -->
+        <section class="drafts-section hidden" id="drafts-section">
+            <h2 class="section-title">Saved Drafts (Private)</h2>
+            <div id="drafts-grid" class="memory-grid"></div>
+        </section>
+
+        <!-- Published Memory Gallery -->
         <section class="gallery-section">
             <h2 class="section-title">Our Cherished Moments</h2>
             <div id="memory-grid" class="memory-grid">
-                <!-- Default Sample Card -->
                 <article class="memory-card">
                     <div class="card-content">
                         <h3>Where It All Began</h3>
-                        <p>Every moment with you feels like a favorite song on repeat. Use the form above to add our favorite photos, videos, and notes!</p>
+                        <p>Every moment with you feels like a favorite song on repeat. Add your photos, videos, and notes above!</p>
                         <span class="card-date">Forever & Always</span>
                     </div>
                 </article>
@@ -60,7 +120,7 @@
     </main>
 
     <footer>
-        <p>Made with ❤️ for someone special</p>
+        <p>Made with ❤️ — Loving You Eternally</p>
     </footer>
 
     <script src="script.js"></script>
