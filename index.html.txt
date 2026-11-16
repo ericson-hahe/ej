@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Our Love Story | Valentine's Memory Board</title>
+    <!-- Romantic Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Great+Vibes&family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Container for JS floating hearts -->
+    <div id="hearts-container"></div>
+
+    <header class="hero">
+        <h1 class="script-font">Happy Valentine's Day</h1>
+        <p class="subtitle" contenteditable="true" title="Click to edit subtitle">
+            Click here to write your own custom headline or dedication...
+        </p>
+    </header>
+
+    <main class="container">
+        <!-- Interactive Creator Panel -->
+        <section class="creator-card">
+            <h2 class="section-title">Add a New Memory</h2>
+            <form id="memory-form">
+                <div class="form-group">
+                    <label for="memory-title">Title / Date</label>
+                    <input type="text" id="memory-title" placeholder="e.g., Our First Coffee Date - Feb 14" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="memory-text">Love Note / Words</label>
+                    <textarea id="memory-text" rows="4" placeholder="Write something sweet from the heart..." required></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="memory-media">Attach a Photo or Video (Optional)</label>
+                    <input type="file" id="memory-media" accept="image/*,video/*">
+                </div>
+
+                <button type="submit" class="btn-love">Pin to Our Board ❤️</button>
+            </form>
+        </section>
+
+        <!-- Display Grid for Memories -->
+        <section class="gallery-section">
+            <h2 class="section-title">Our Cherished Moments</h2>
+            <div id="memory-grid" class="memory-grid">
+                <!-- Default Sample Card -->
+                <article class="memory-card">
+                    <div class="card-content">
+                        <h3>Where It All Began</h3>
+                        <p>Every moment with you feels like a favorite song on repeat. Use the form above to add our favorite photos, videos, and notes!</p>
+                        <span class="card-date">Forever & Always</span>
+                    </div>
+                </article>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <p>Made with ❤️ for someone special</p>
+    </footer>
+
+    <script src="script.js"></script>
+</body>
+</html>
