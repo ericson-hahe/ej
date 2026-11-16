@@ -33,64 +33,103 @@ document.addEventListener('DOMContentLoaded', async () => {
     let existingMediaData = null;
     let existingMediaType = null;
 
-    // ==========================================
-    // 1. INDEXEDDB SETUP (Memories + Settings Store)
-    // ==========================================
-    const DB_NAME = 'LovingYouEternallyDB_v2';
-    const DB_VERSION = 1;
+    // Fallback in-memory storage if IndexedDB is blocked on file://
+    let fallbackMemories = [];
+    let fallbackSettings = {};
+    let db = null;
 
+    // ==========================================
+    // 1. SAFE INDEXEDDB SETUP (With Fallback)
+    // ==========================================
     function openDB() {
-        return new Promise((resolve, reject) => {
-            const request = indexedDB.open(DB_NAME, DB_VERSION);
-            request.onupgradeneeded = (e) => {
-                const db = e.target.result;
-                if (!db.objectStoreNames.contains('memories')) {
-                    db.createObjectStore('memories', { keyPath: 'id' });
-                }
-                if (!db.objectStoreNames.contains('settings')) {
-                    db.createObjectStore('settings', { keyPath: 'key' });
-                }
-            };
-            request.onsuccess = () => resolve(request.result);
-            request.onerror = () => reject(request.error);
+        return new Promise((resolve) => {
+            if (!window.indexedDB) return resolve(null);
+            try {
+                const request = indexedDB.open('LovingYouEternallyDB_v3', 1);
+                request.onupgradeneeded = (e) => {
+                    const database = e.target.result;
+                    if (!database.objectStoreNames.contains('memories')) {
+                        database.createObjectStore('memories', { keyPath: 'id' });
+                    }
+                    if (!database.objectStoreNames.contains('settings')) {
+                        database.createObjectStore('settings', { keyPath: 'key' });
+                    }
+                };
+                request.onsuccess = () => resolve(request.result);
+                request.onerror = () => resolve(null);
+            } catch (err) {
+                resolve(null);
+            }
         });
     }
 
-    const db = await openDB();
+    db = await openDB();
 
     function dbGetAll(storeName) {
-        return new Promise((resolve, reject) => {
+        return new Promise((resolve) => {
+            if (!db) {
+                if (storeName === 'memories') {
+                    try {
+                        const saved = JSON.parse(localStorage.getItem('lye_fallback_memories'));
+                        return resolve(saved || fallbackMemories);
+                    } catch (e) {
+                        return resolve(fallbackMemories);
+                    }
+                }
+                return resolve([]);
+            }
             const tx = db.transaction(storeName, 'readonly');
             const req = tx.objectStore(storeName).getAll();
-            req.onsuccess = () => resolve(req.result);
-            req.onerror = () => reject(req.error);
+            req.onsuccess = () => resolve(req.result || []);
+            req.onerror = () => resolve([]);
         });
     }
 
     function dbGet(storeName, key) {
-        return new Promise((resolve, reject) => {
+        return new Promise((resolve) => {
+            if (!db) return resolve(fallbackSettings[key] || null);
             const tx = db.transaction(storeName, 'readonly');
             const req = tx.objectStore(storeName).get(key);
-            req.onsuccess = () => resolve(req.result);
-            req.onerror = () => reject(req.error);
+            req.onsuccess = () => resolve(req.result || null);
+            req.onerror = () => resolve(null);
         });
     }
 
     function dbPut(storeName, value) {
-        return new Promise((resolve, reject) => {
+        return new Promise((resolve) => {
+            if (!db) {
+                if (storeName === 'memories') {
+                    const idx = fallbackMemories.findIndex(m => m.id === value.id);
+                    if (idx > -1) fallbackMemories[idx] = value;
+                    else fallbackMemories.push(value);
+                    try { localStorage.setItem('lye_fallback_memories', JSON.stringify(fallbackMemories)); } catch (e) {}
+                } else {
+                    fallbackSettings[value.key] = value;
+                }
+                return resolve();
+            }
             const tx = db.transaction(storeName, 'readwrite');
             const req = tx.objectStore(storeName).put(value);
             req.onsuccess = () => resolve();
-            req.onerror = () => reject(req.error);
+            req.onerror = () => resolve();
         });
     }
 
     function dbDelete(storeName, key) {
-        return new Promise((resolve, reject) => {
+        return new Promise((resolve) => {
+            if (!db) {
+                if (storeName === 'memories') {
+                    fallbackMemories = fallbackMemories.filter(m => m.id !== key);
+                    try { localStorage.setItem('lye_fallback_memories', JSON.stringify(fallbackMemories)); } catch (e) {}
+                } else {
+                    delete fallbackSettings[key];
+                }
+                return resolve();
+            }
             const tx = db.transaction(storeName, 'readwrite');
             const req = tx.objectStore(storeName).delete(key);
             req.onsuccess = () => resolve();
-            req.onerror = () => reject(req.error);
+            req.onerror = () => resolve();
         });
     }
 
@@ -106,32 +145,89 @@ document.addEventListener('DOMContentLoaded', async () => {
     // ==========================================
     // 2. LOAD SAVED SETTINGS (Title, Music, Passcode)
     // ==========================================
-    const savedTitle = localStorage.getItem('lye_main_title');
-    const savedSubtitle = localStorage.getItem('lye_main_subtitle');
-    if (savedTitle) mainTitleEl.textContent = savedTitle;
-    if (savedSubtitle) mainSubtitleEl.textContent = savedSubtitle;
+    try {
+        const savedTitle = localStorage.getItem('lye_main_title');
+        const savedSubtitle = localStorage.getItem('lye_main_subtitle');
+        if (savedTitle) mainTitleEl.textContent = savedTitle;
+        if (savedSubtitle) mainSubtitleEl.textContent = savedSubtitle;
 
-    mainTitleEl.addEventListener('input', () => localStorage.setItem('lye_main_title', mainTitleEl.textContent));
-    mainSubtitleEl.addEventListener('input', () => localStorage.setItem('lye_main_subtitle', mainSubtitleEl.textContent));
+        secretPasswordInput.value = localStorage.getItem('lye_passcode') || '';
+        passwordHintInput.value = localStorage.getItem('lye_passhint') || '';
+    } catch (e) {}
 
-    // Load Passcode & Hint
-    secretPasswordInput.value = localStorage.getItem('lye_passcode') || '';
-    passwordHintInput.value = localStorage.getItem('lye_passhint') || '';
-
+    mainTitleEl.addEventListener('input', () => {
+        try { localStorage.setItem('lye_main_title', mainTitleEl.textContent); } catch (e) {}
+    });
+    mainSubtitleEl.addEventListener('input', () => {
+        try { localStorage.setItem('lye_main_subtitle', mainSubtitleEl.textContent); } catch (e) {}
+    });
     secretPasswordInput.addEventListener('input', () => {
-        localStorage.setItem('lye_passcode', secretPasswordInput.value.trim());
+        try { localStorage.setItem('lye_passcode', secretPasswordInput.value.trim()); } catch (e) {}
     });
     passwordHintInput.addEventListener('input', () => {
-        localStorage.setItem('lye_passhint', passwordHintInput.value.trim());
+        try { localStorage.setItem('lye_passhint', passwordHintInput.value.trim()); } catch (e) {}
     });
 
-    // Load Saved Background Music
     async function loadSavedMusic() {
         const musicRecord = await dbGet('settings', 'bg_music');
         if (musicRecord && musicRecord.dataUrl) {
             bgAudio.src = musicRecord.dataUrl;
             musicTrackName.textContent = musicRecord.fileName;
-            musicStatus.textContent = `Loaded: ${musicRecord.fileName}`; musicPill.classList.remove('hidden'); removeMusicBtn.classList.remove('hidden'); } else { bgAudio.pause(); bgAudio.removeAttribute('src'); musicStatus.textContent = 'No song uploaded yet.'; musicPill.classList.add('hidden'); removeMusicBtn.classList.add('hidden'); } }  musicUpload.addEventListener('change', async (e) => { const file = e.target.files[0]; if (!file) return; const dataUrl = await fileToDataURL(file); await dbPut('settings', { key: 'bg_music', fileName: file.name, dataUrl }); await loadSavedMusic(); });  removeMusicBtn.addEventListener('click', async () => { await dbDelete('settings', 'bg_music'); musicUpload.value = ''; await loadSavedMusic(); });  musicToggleBtn.addEventListener('click', () => { if (bgAudio.paused) { bgAudio.play(); musicPill.classList.add('playing'); musicToggleBtn.textContent = '⏸️'; } else { bgAudio.pause(); musicPill.classList.remove('playing'); musicToggleBtn.textContent = '🎵'; } });  // ========================================== // 3. TEST LOCK SCREEN LOGIC // ========================================== function showLockScreen() { const pass = secretPasswordInput.value.trim(); if (!pass) { alert('Type a secret passcode first in the "Music & Secret Passcode" box to test the lock screen!'); return; } const hint = passwordHintInput.value.trim(); lockHintDisplay.textContent = hint ? `Hint: ${hint}` : 'Enter our secret passcode to unlock my heart.';
+            musicStatus.textContent = `Loaded: ${musicRecord.fileName}`;
+            musicPill.classList.remove('hidden');
+            removeMusicBtn.classList.remove('hidden');
+        } else {
+            bgAudio.pause();
+            bgAudio.removeAttribute('src');
+            musicStatus.textContent = 'No song uploaded yet.';
+            musicPill.classList.add('hidden');
+            removeMusicBtn.classList.add('hidden');
+        }
+    }
+
+    musicUpload.addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        musicStatus.textContent = 'Loading song...';
+        const dataUrl = await fileToDataURL(file);
+        await dbPut('settings', {
+            key: 'bg_music',
+            fileName: file.name,
+            dataUrl
+        });
+        await loadSavedMusic();
+    });
+
+    removeMusicBtn.addEventListener('click', async () => {
+        await dbDelete('settings', 'bg_music');
+        musicUpload.value = '';
+        await loadSavedMusic();
+    });
+
+    musicToggleBtn.addEventListener('click', () => {
+        if (bgAudio.paused) {
+            bgAudio.play();
+            musicPill.classList.add('playing');
+            musicToggleBtn.textContent = '⏸️';
+        } else {
+            bgAudio.pause();
+            musicPill.classList.remove('playing');
+            musicToggleBtn.textContent = '🎵';
+        }
+    });
+
+    // ==========================================
+    // 3. TEST LOCK SCREEN LOGIC
+    // ==========================================
+    function showLockScreen() {
+        const pass = secretPasswordInput.value.trim();
+        if (!pass) {
+            alert('Type a secret passcode first in the "Music & Secret Passcode" box to test the lock screen!');
+            secretPasswordInput.focus();
+            return;
+        }
+        const hint = passwordHintInput.value.trim();
+        lockHintDisplay.textContent = hint ? `Hint: ${hint}` : 'Enter our secret passcode to unlock my heart.';
         unlockInput.value = '';
         lockError.classList.add('hidden');
         lockScreen.classList.remove('hidden');
@@ -210,6 +306,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         if (item.status === 'published') {
             const pinBtn = document.createElement('button');
+            pinBtn.type = 'button';
             pinBtn.className = 'icon-btn';
             pinBtn.title = item.pinned ? 'Unpin' : 'Pin to top';
             pinBtn.textContent = item.pinned ? '📍' : '📌';
@@ -222,6 +319,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         const editBtn = document.createElement('button');
+        editBtn.type = 'button';
         editBtn.className = 'icon-btn';
         editBtn.title = 'Edit';
         editBtn.textContent = '✏️';
@@ -238,6 +336,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         actions.appendChild(editBtn);
 
         const delBtn = document.createElement('button');
+        delBtn.type = 'button';
         delBtn.className = 'icon-btn';
         delBtn.title = 'Delete';
         delBtn.textContent = '🗑️';
@@ -282,6 +381,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         if (item.status === 'draft') {
             const pubBtn = document.createElement('button');
+            pubBtn.type = 'button';
             pubBtn.className = 'btn-publish-draft';
             pubBtn.textContent = 'Publish Now ❤️';
             pubBtn.onclick = async () => {
@@ -336,7 +436,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         existingMediaType = null;
         document.getElementById('file-status').textContent = '';
         memoryForm.reset();
-        renderBoard();
+        await renderBoard();
     }
 
     memoryForm.addEventListener('submit', (e) => {
@@ -421,6 +521,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             <audio id="bg-audio" src="${musicRecord.dataUrl}" loop></audio>
         </div>` : '';
 
+        const closeScriptTag = '</' + 'script>';
+
         const standaloneHTML = `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -432,7 +534,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 </head>
 <body class="reader-mode">
     <div id="hearts-container"></div>
-    ${lockHTML}${musicHTML}
+    ${lockHTML}
+    ${musicHTML}
     <header class="hero">
         <h1 class="script-font">${escapeHTML(titleText)}</h1>
         <p class="subtitle">${escapeHTML(subtitleText)}</p>
@@ -490,4 +593,41 @@ document.addEventListener('DOMContentLoaded', async () => {
             h.className = 'floating-heart';
             h.innerHTML = '❤';
             h.style.left = Math.random() * 100 + 'vw';
-            h.style.fontSize = (Math.random() *
+            h.style.fontSize = (Math.random() * 20 + 12) + 'px';
+            h.style.animationDuration = (Math.random() * 5 + 6) + 's';
+            container.appendChild(h);
+            setTimeout(() => h.remove(), 11000);
+        }, 600);
+    ${closeScriptTag}
+</body>
+</html>`;
+
+        const blob = new Blob([standaloneHTML], { type: 'text/html' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'Loving_You_Eternally_For_You.html';
+        a.click();
+        URL.revokeObjectURL(url);
+    });
+
+    function escapeHTML(str) {
+        return str.replace(/[&<>'"]/g, tag => ({
+            '&': '&', '<': '<', '>': '>', "'": ''', '"': '"'
+        }[tag]));
+    }
+
+    setInterval(() => {
+        const heart = document.createElement('div');
+        heart.className = 'floating-heart';
+        heart.innerHTML = '❤';
+        heart.style.left = Math.random() * 100 + 'vw';
+        heart.style.fontSize = (Math.random() * 20 + 12) + 'px';
+        heart.style.animationDuration = (Math.random() * 5 + 6) + 's';
+        heartsContainer.appendChild(heart);
+        setTimeout(() => heart.remove(), 11000);
+    }, 600);
+
+    await loadSavedMusic();
+    await renderBoard();
+});
