@@ -1,4 +1,14 @@
 document.addEventListener('DOMContentLoaded', async () => {
+    const toastBox = document.getElementById('toast-box');
+    let toastTimer = null;
+
+    function showToast(msg) {
+        toastBox.textContent = msg;
+        toastBox.classList.remove('hidden');
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => toastBox.classList.add('hidden'), 3500);
+    }
+
     const memoryForm = document.getElementById('memory-form');
     const memoryGrid = document.getElementById('memory-grid');
     const draftsSection = document.getElementById('drafts-section');
@@ -12,7 +22,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     const mainSubtitleEl = document.getElementById('main-subtitle');
     const heartsContainer = document.getElementById('hearts-container');
 
-    // Music & Lock Elements
     const musicUpload = document.getElementById('music-upload');
     const musicStatus = document.getElementById('music-status');
     const removeMusicBtn = document.getElementById('remove-music-btn');
@@ -27,25 +36,22 @@ document.addEventListener('DOMContentLoaded', async () => {
     const lockHintDisplay = document.getElementById('lock-hint-display');
     const unlockInput = document.getElementById('unlock-input');
     const unlockBtn = document.getElementById('unlock-btn');
+    const closeTestLockBtn = document.getElementById('close-test-lock-btn');
     const lockError = document.getElementById('lock-error');
 
     let editingDraftId = null;
     let existingMediaData = null;
     let existingMediaType = null;
-
-    // Fallback in-memory storage if IndexedDB is blocked on file://
     let fallbackMemories = [];
     let fallbackSettings = {};
     let db = null;
 
-    // ==========================================
-    // 1. SAFE INDEXEDDB SETUP (With Fallback)
-    // ==========================================
+    // Safe IndexedDB Setup
     function openDB() {
         return new Promise((resolve) => {
             if (!window.indexedDB) return resolve(null);
             try {
-                const request = indexedDB.open('LovingYouEternallyDB_v3', 1);
+                const request = indexedDB.open('LovingYouEternallyDB_v4', 1);
                 request.onupgradeneeded = (e) => {
                     const database = e.target.result;
                     if (!database.objectStoreNames.contains('memories')) {
@@ -142,9 +148,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
-    // ==========================================
-    // 2. LOAD SAVED SETTINGS (Title, Music, Passcode)
-    // ==========================================
+    // Load Saved Header & Passcode
     try {
         const savedTitle = localStorage.getItem('lye_main_title');
         const savedSubtitle = localStorage.getItem('lye_main_subtitle');
@@ -168,6 +172,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         try { localStorage.setItem('lye_passhint', passwordHintInput.value.trim()); } catch (e) {}
     });
 
+    // Music Player
     async function loadSavedMusic() {
         const musicRecord = await dbGet('settings', 'bg_music');
         if (musicRecord && musicRecord.dataUrl) {
@@ -190,18 +195,16 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (!file) return;
         musicStatus.textContent = 'Loading song...';
         const dataUrl = await fileToDataURL(file);
-        await dbPut('settings', {
-            key: 'bg_music',
-            fileName: file.name,
-            dataUrl
-        });
+        await dbPut('settings', { key: 'bg_music', fileName: file.name, dataUrl });
         await loadSavedMusic();
+        showToast('🎵 Background song added!');
     });
 
     removeMusicBtn.addEventListener('click', async () => {
         await dbDelete('settings', 'bg_music');
         musicUpload.value = '';
         await loadSavedMusic();
+        showToast('Song removed.');
     });
 
     musicToggleBtn.addEventListener('click', () => {
@@ -216,13 +219,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
 
-    // ==========================================
-    // 3. TEST LOCK SCREEN LOGIC
-    // ==========================================
-    function showLockScreen() {
+    // Test Lock Screen
+    testLockBtn.addEventListener('click', () => {
         const pass = secretPasswordInput.value.trim();
         if (!pass) {
-            alert('Type a secret passcode first in the "Music & Secret Passcode" box to test the lock screen!');
+            showToast('⚠️ Mag-type muna ng Secret Passcode sa ibaba bago i-test!');
+            secretPasswordInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
             secretPasswordInput.focus();
             return;
         }
@@ -231,12 +233,17 @@ document.addEventListener('DOMContentLoaded', async () => {
         unlockInput.value = '';
         lockError.classList.add('hidden');
         lockScreen.classList.remove('hidden');
-    }
+    });
+
+    closeTestLockBtn.addEventListener('click', () => {
+        lockScreen.classList.add('hidden');
+    });
 
     function attemptUnlock() {
         const correctPass = secretPasswordInput.value.trim();
         if (unlockInput.value.trim() === correctPass) {
             lockScreen.classList.add('hidden');
+            showToast('🔓 Unlocked! Ganyan ang makikita niya.');
             if (bgAudio.src) {
                 bgAudio.play().then(() => {
                     musicPill.classList.add('playing');
@@ -248,15 +255,22 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }
 
-    testLockBtn.addEventListener('click', showLockScreen);
     unlockBtn.addEventListener('click', attemptUnlock);
     unlockInput.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') attemptUnlock();
     });
 
-    // ==========================================
-    // 4. RENDER MEMORIES & DRAFTS
-    // ==========================================
+    // Preview Recipient View
+    togglePreviewBtn.addEventListener('click', () => {
+        document.body.classList.toggle('reader-mode');
+        const isReader = document.body.classList.contains('reader-mode');
+        togglePreviewBtn.textContent = isReader ? '✏️ Back to Editor Mode' : '👁️ Preview Recipient View';
+        mainTitleEl.contentEditable = !isReader;
+        mainSubtitleEl.contentEditable = !isReader;
+        showToast(isReader ? '👁️ Viewing as Recipient (Nakatago ang editor)' : '✏️ Back to Editor Mode');
+    });
+
+    // Render Memories & Drafts
     async function renderBoard() {
         const items = await dbGetAll('memories');
         const published = items
@@ -314,6 +328,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 item.pinned = !item.pinned;
                 await dbPut('memories', item);
                 renderBoard();
+                showToast(item.pinned ? '📌 Pinned to top!' : 'Unpinned');
             };
             actions.appendChild(pinBtn);
         }
@@ -343,6 +358,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         delBtn.onclick = async () => {
             await dbDelete('memories', item.id);
             renderBoard();
+            showToast('Deleted.');
         };
         actions.appendChild(delBtn);
         card.appendChild(actions);
@@ -388,6 +404,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 item.status = 'published';
                 await dbPut('memories', item);
                 renderBoard();
+                showToast('❤️ Published to board!');
             };
             footerDiv.appendChild(pubBtn);
         }
@@ -407,7 +424,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const file = document.getElementById('memory-media').files[0];
 
         if (!title && !text) {
-            alert('Please write a title or a love note first!');
+            showToast('⚠️ Maglagay muna ng Title o Love Note!');
             return;
         }
 
@@ -437,6 +454,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         document.getElementById('file-status').textContent = '';
         memoryForm.reset();
         await renderBoard();
+        showToast(status === 'draft' ? '📝 Saved to Drafts!' : '❤️ Published to Board!');
     }
 
     memoryForm.addEventListener('submit', (e) => {
@@ -446,20 +464,26 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     saveDraftBtn.addEventListener('click', () => handleFormSave('draft'));
 
-    // ==========================================
-    // 5. PREVIEW RECIPIENT MODE
-    // ==========================================
-    togglePreviewBtn.addEventListener('click', () => {
-        document.body.classList.toggle('reader-mode');
-        const isReader = document.body.classList.contains('reader-mode');
-        togglePreviewBtn.textContent = isReader ? '✏️ Back to Editor Mode' : '👁️ Preview Recipient View';
-        mainTitleEl.contentEditable = !isReader;
-        mainSubtitleEl.contentEditable = !isReader;
-    });
+    // Helper to fetch style.css safely for the standalone exported file
+    async function getStylesheetText() {
+        try {
+            const res = await fetch('style.css');
+            if (res.ok) return await res.text();
+        } catch (e) {}
 
-    // ==========================================
-    // 6. EXPORT & SHARE WITH LOCK SCREEN + MUSIC
-    // ==========================================
+        // Fallback if opened via local file:// where fetch() is restricted
+        let cssText = '';
+        for (const sheet of document.styleSheets) {
+            if (sheet.href && sheet.href.includes('style.css')) {
+                try {
+                    cssText = Array.from(sheet.cssRules).map(r => r.cssText).join('\n');
+                } catch (e) {}
+            }
+        }
+        return cssText;
+    }
+
+    // Save & Share Standalone File
     exportShareBtn.addEventListener('click', async () => {
         const items = await dbGetAll('memories');
         const published = items
@@ -467,15 +491,19 @@ document.addEventListener('DOMContentLoaded', async () => {
             .sort((a, b) => (a.pinned === b.pinned ? b.timestamp - a.timestamp : a.pinned ? -1 : 1));
 
         if (published.length === 0) {
-            alert('Publish at least one memory or love note first before sharing!');
+            showToast('⚠️ Mag-publish muna ng kahit isang Love Note o Picture bago mag-share!');
+            document.getElementById('creator-section').scrollIntoView({ behavior: 'smooth' });
             return;
         }
+
+        showToast('💌 Ginagawa ang file para sa kanya...');
 
         const titleText = mainTitleEl.textContent;
         const subtitleText = mainSubtitleEl.textContent;
         const passcode = secretPasswordInput.value.trim();
         const passHint = passwordHintInput.value.trim();
         const musicRecord = await dbGet('settings', 'bg_music');
+        const embeddedCSS = await getStylesheetText();
 
         const cardsHTML = published.map(item => {
             let mediaHTML = '';
@@ -496,12 +524,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             </article>`;
         }).join('');
 
-        const styles = Array.from(document.styleSheets)
-            .map(sheet => {
-                try { return Array.from(sheet.cssRules).map(r => r.cssText).join('\n'); }
-                catch (e) { return ''; }
-            }).join('\n');
-
         const lockHTML = passcode ? `
         <div id="lock-screen" class="lock-overlay">
             <div class="lock-box">
@@ -521,7 +543,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             <audio id="bg-audio" src="${musicRecord.dataUrl}" loop></audio>
         </div>` : '';
 
-        const closeScriptTag = '</' + 'script>';
+        const endScript = '<' + '/script>';
 
         const standaloneHTML = `<!DOCTYPE html>
 <html lang="en">
@@ -530,7 +552,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>${escapeHTML(titleText)}</title>
     <link href="https://fonts.googleapis.com/css2?family=Great+Vibes&family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
-    <style>${styles}</style>
+    <style>${embeddedCSS}</style>
 </head>
 <body class="reader-mode">
     <div id="hearts-container"></div>
@@ -598,17 +620,20 @@ document.addEventListener('DOMContentLoaded', async () => {
             container.appendChild(h);
             setTimeout(() => h.remove(), 11000);
         }, 600);
-    ${closeScriptTag}
+    ${endScript}
 </body>
 </html>`;
 
-        const blob = new Blob([standaloneHTML], { type: 'text/html' });
+        const blob = new Blob([standaloneHTML], { type: 'text/html;charset=utf-8' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
         a.download = 'Loving_You_Eternally_For_You.html';
+        document.body.appendChild(a);
         a.click();
-        URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(url), 2000);
+        showToast('✅ Na-download na ang Loving_You_Eternally_For_You.html!');
     });
 
     function escapeHTML(str) {
@@ -617,6 +642,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }[tag]));
     }
 
+    // Floating Hearts
     setInterval(() => {
         const heart = document.createElement('div');
         heart.className = 'floating-heart';

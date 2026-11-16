@@ -9,6 +9,7 @@
 </head>
 <body>
     <div id="hearts-container"></div>
+    <div id="toast-box" class="toast-msg hidden"></div>
 
     <!-- Romantic Password Lock Screen Overlay -->
     <div id="lock-screen" class="lock-overlay hidden">
@@ -19,6 +20,8 @@
             <input type="password" id="unlock-input" placeholder="Enter secret passcode...">
             <p id="lock-error" class="lock-error hidden">Incorrect passcode, try again my love 💕</p>
             <button type="button" id="unlock-btn" class="btn-love">Unlock Memories 🗝️</button>
+            <br><br>
+            <button type="button" id="close-test-lock-btn" class="btn-link">Close Preview</button>
         </div>
     </div>
 
@@ -44,7 +47,7 @@
     </header>
 
     <main class="container">
-        <!-- Music & Password Lock Settings (Editor Only) -->
+        <!-- Music & Password Lock Settings -->
         <section class="creator-card settings-card" id="settings-section">
             <h2 class="section-title">Music & Secret Passcode</h2>
             <div class="settings-grid">
