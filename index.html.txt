@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Our Love Story | Valentine's Memory Board</title>
+    <title>Loving You Eternally | Valentine's Memory Board</title>
     <!-- Romantic Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Great+Vibes&family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
@@ -13,7 +13,7 @@
     <div id="hearts-container"></div>
 
     <header class="hero">
-        <h1 class="script-font">Happy Valentine's Day</h1>
+        <h1 class="script-font">Loving You Eternally</h1>
         <p class="subtitle" contenteditable="true" title="Click to edit subtitle">
             Click here to write your own custom headline or dedication...
         </p>
